@@ -1,7 +1,7 @@
 # Setup Guide
 
 * Create IAM role
-    * attach policies (Cloudwatch, SNS, S3, etc..)
+    * attach policies (Cloudwatch, SNS, S3, etc..) and neccessary permission
 * Create SNS Topic
 * Create S3 bucket for storage
 * Create API Gateway
