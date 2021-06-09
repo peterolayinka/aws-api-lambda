@@ -9,15 +9,21 @@ function getKeyName(folder, filename) {
 }
 
 interface Signature {
-  timestamp: "string";
-  token: "string";
-  signature: "string";
+  timestamp: string;
+  token: string;
+  signature: string;
 }
 
 interface EventData {
   event: string,
-  timestamp: "string";
-  id: "string";
+  timestamp: string;
+  id: string;
+}
+
+interface EventContent {
+  Provider: string,
+  timestamp: string;
+  type: string;
 }
 
 enum StorageOptions {
@@ -36,7 +42,7 @@ class WebhookProcessor {
   request: any;
   event: EventData;
   signature: Signature;
-  action: string;
+  eventContent: EventContent
 
   constructor(
     request: any,
@@ -46,7 +52,11 @@ class WebhookProcessor {
 
     this.event = parsedBody["event-data"];
     this.signature = parsedBody.signature;
-    this.action = `email ${this.event.event}`;
+    this.eventContent = {
+      Provider: "Mailgun",
+      timestamp: this.event.timestamp,
+      type: `email ${this.event.event}`,
+    };
   }
 
   validateEnvironmentVariables() {
@@ -128,7 +138,7 @@ class WebhookProcessor {
 
     let sns = new AWS.SNS({ apiVersion: "2010-03-31" });
     let snsParams = {
-      Message: this.action,
+      Message: JSON.stringify(this.eventContent, null, 2),
       Subject: "Mailgun Webhook notification",
       TopicArn: process.env.SNS_ARN,
     };
@@ -154,11 +164,6 @@ class WebhookProcessor {
     }
 
     let s3 = new AWS.S3({ apiVersion: "2006-03-01" });
-    let s3Content = {
-      Provider: "Mailgun",
-      timestamp: this.event.timestamp,
-      type: this.action,
-    };
 
     var bucketName = "receeve-mailgun";
     let keyName = `${this.event.id}.txt`
@@ -166,7 +171,7 @@ class WebhookProcessor {
     var objectParams = {
       Bucket: process.env.S3_BUCKET_NAME,
       Key: keyName,
-      Body: JSON.stringify(s3Content, null, 2),
+      Body: JSON.stringify(this.eventContent, null, 2),
     };
 
     // Create object upload promise
@@ -216,3 +221,51 @@ const handler = async (event, context) => {
 };
 
 exports.handler = handler
+
+const eventData = {
+  "resource": "/",
+  "path": "/",
+  "httpMethod": "POST",
+  "headers": null,
+  "multiValueHeaders": null,
+  "queryStringParameters": null,
+  "multiValueQueryStringParameters": null,
+  "pathParameters": null,
+  "stageVariables": null,
+  "requestContext": {
+    "resourceId": "tz879dexv5",
+    "resourcePath": "/",
+    "httpMethod": "POST",
+    "extendedRequestId": "Apsg-GFJIAMF1Og=",
+    "requestTime": "09/Jun/2021:09:46:46 +0000",
+    "path": "/",
+    "accountId": "1234567890",
+    "protocol": "HTTP/1.1",
+    "stage": "test-invoke-stage",
+    "domainPrefix": "testPrefix",
+    "requestTimeEpoch": 1623232006020,
+    "requestId": "2507c2d5-552a-421e-bc61-e4d740311e9b",
+    "identity": {
+      "cognitoIdentityPoolId": null,
+      "cognitoIdentityId": null,
+      "apiKey": "test-invoke-api-key",
+      "principalOrgId": null,
+      "cognitoAuthenticationType": null,
+      "userArn": "arn:aws:iam::1234567890:root",
+      "apiKeyId": "test-invoke-api-key-id",
+      "userAgent": "aws-internal/3 aws-sdk-java/1.11.1014 Linux/5.4.102-52.177.amzn2int.x86_64 OpenJDK_64-Bit_Server_VM/25.292-b10 java/1.8.0_292 vendor/Oracle_Corporation cfg/retry-mode/legacy",
+      "accountId": "1234567890",
+      "caller": "1234567890",
+      "sourceIp": "test-invoke-source-ip",
+      "accessKey": "ABCDEFGHIJKLMNOPQRST",
+      "cognitoAuthenticationProvider": null,
+      "user": "1234567890"
+    },
+    "domainName": "testPrefix.testDomainName",
+    "apiId": "in3trz7mpg"
+  },
+  "body": "{\n  \"signature\":\n  {\n    \"timestamp\": \"1529006854\",\n    \"token\": \"a8ce0edb2dd8301dee6c2405235584e45aa91d1e9f979f3de0\",\n    \"signature\": \"50dd7709613e688fd1e2c445b680b1948fe09ea315d472df2c6c8db88154902b\"\n  },\n  \"event-data\":\n  {\n    \"event\": \"opened\",\n    \"timestamp\": 1529006854.329574,\n    \"id\": \"DACSsAdVSeGpLid7TN03WA\"\n  }\n}",
+  "isBase64Encoded": false
+}
+
+handler(eventData, {})
