@@ -61,7 +61,7 @@ class WebhookProcessor {
     }
   }
 
-  processWebHook() {
+  async processWebHook() {
     let body: string;
     let statusCode = "200";
     const headers = {
@@ -81,8 +81,8 @@ class WebhookProcessor {
       try {
         switch (this.request.httpMethod) {
           case "POST":
-            body = this.sendNotification(process.env.NOTIFICATION_SERVICE);
-            body += this.storeEventLog(process.env.STORAGE_SERVICE);
+            body = await this.sendNotification(process.env.NOTIFICATION_SERVICE);
+            body += await this.storeEventLog(process.env.STORAGE_SERVICE);
 
             break;
           default:
@@ -121,7 +121,7 @@ class WebhookProcessor {
     return encodedToken === signature;
   }
 
-  processSNS() {
+  async processSNS() {
     if (!process.env.SNS_ARN) {
       throw new Error("Please specify SNS ARN")
     }
@@ -134,21 +134,21 @@ class WebhookProcessor {
     };
 
     // Create promise and SNS service object
-    var snsResult = sns.publish(snsParams).promise();
+    var snsResult = await sns.publish(snsParams).promise();
+    console.log(snsResult)
+    if (snsResult.MessageId) {
+      console.log(
+        `Message ${snsParams.Message} sent to the topic ${snsParams.TopicArn}`
+      );
 
-    snsResult
-      .then(function (data) {
-        console.log(
-          `Message ${snsParams.Message} sent to the topic ${snsParams.TopicArn}`
-        );
-        console.log("MessageID is " + data.MessageId);
-      })
-      .catch(function (err) {
-        console.error(err, err.stack);
-      });
+    } else {
+      console.log(
+        "Upload failed"
+      );
+    }
   }
 
-  processS3() {
+  async processS3() {
     if (!process.env.S3_BUCKET_NAME) {
       throw new Error("Please specify S3 bucket name")
     }
@@ -170,21 +170,24 @@ class WebhookProcessor {
     };
 
     // Create object upload promise
-    var uploadPromise = s3.putObject(objectParams).promise();
-    uploadPromise.then(function (data) {
+    var uploadResult = await s3.putObject(objectParams).promise();
+    console.log(uploadResult)
+    if (uploadResult.ETag) {
       console.log(
         "Successfully uploaded data to " + bucketName + "/" + keyName
       );
-    })
-      .catch(function (err) {
-        console.error(err, err.stack);
-      });
+
+    } else {
+      console.log(
+        "Upload failed"
+      );
+    }
   }
 
-  sendNotification(service: string) {
+  async sendNotification(service: string) {
     switch (service) {
       case "sns":
-        this.processSNS()
+        await this.processSNS()
         break;
       default:
         throw new Error(`Please provide a service`);
@@ -192,10 +195,10 @@ class WebhookProcessor {
     return "Notification sent successfully.";
   }
 
-  storeEventLog(service: string) {
+  async storeEventLog(service: string) {
     switch (service) {
       case "s3":
-        this.processS3()
+        await this.processS3()
         break;
       default:
         throw new Error(`Please provide a service`);
@@ -207,7 +210,7 @@ class WebhookProcessor {
 const handler = async (event, context) => {
   console.log("Received event:", JSON.stringify(event, null, 2));
   const mailgun = new WebhookProcessor(event);
-  const processResponse = mailgun.processWebHook();
+  const processResponse = await mailgun.processWebHook();
   console.log(processResponse);
   return processResponse
 };
