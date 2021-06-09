@@ -143,7 +143,7 @@ class WebhookProcessor {
 
     } else {
       console.log(
-        "Upload failed"
+        "Failed to send notification"
       );
     }
   }
